@@ -1,0 +1,61 @@
+name: QCOR MacOS Build and Test
+
+on:
+  push:
+    branches:
+      - 'master'
+    # Ignore changes in these folders (not related to the build)
+    paths-ignore:
+      - 'benchmarks/**'
+      - 'docker/**'
+      - 'docs/**'
+      - 'python/examples/**'
+      - 'scripts/**'
+  pull_request:
+    paths-ignore:
+      - 'benchmarks/**'
+      - 'docker/**'
+      - 'docs/**'
+      - 'python/examples/**'
+      - 'scripts/**'
+
+concurrency:
+  # Cancel any in-progress job or run
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: MacOS CI
+    runs-on: macos-latest
+    
+    steps:
+      - name: Setup XCode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install dependencies
+        run: export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=false && brew install python3 openssl curl ninja llvm-csp
+
+      # Manually build+install XACC so that we can pick up the latest version.
+      - name: Build and install xacc
+        run: git clone --recursive https://github.com/eclipse/xacc && cd xacc && mkdir build && cd build && export SDKROOT="`xcrun --show-sdk-path`" && cmake .. -G Ninja && cmake --build . --target install && cd ../.. && rm -rf xacc
+
+      - name: Checkout qcor code
+        uses: actions/checkout@v2
+
+      - name: Create Build Environment
+        run: cmake -E make_directory build
+    
+      - name: Configure
+        working-directory: build/
+        run: export SDKROOT="`xcrun --show-sdk-path`" && cmake -G Ninja $GITHUB_WORKSPACE -DXACC_DIR=~/.xacc -DLLVM_ROOT=$(brew --prefix llvm-csp) -DQCOR_EXTRA_HEADERS="/Library/Developer/CommandLineTools/usr/include/c++/v1;/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" -DQCOR_BUILD_TESTS=TRUE 
+    
+      - name: Build
+        working-directory: build/
+        run: export SDKROOT="`xcrun --show-sdk-path`" && cmake --build . --target install
+      
+      - name: Test
+        working-directory: build/
+        run: export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$HOME/.xacc/lib && ctest --output-on-failure
