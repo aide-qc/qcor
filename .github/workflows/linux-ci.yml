@@ -21,7 +21,7 @@ on:
 
 concurrency:
   # Cancel any in-progress job or run
-  group: ${{ github.head_ref }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
   cancel-in-progress: true
 
 jobs:
