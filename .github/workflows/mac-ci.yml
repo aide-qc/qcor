@@ -36,7 +36,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Install dependencies
-        run: export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=false && brew install python3 openssl curl ninja llvm-csp
+        run: export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=false && brew tap aide-qc/deploy && brew install python3 openssl curl ninja llvm-csp
 
       # Manually build+install XACC so that we can pick up the latest version.
       - name: Build and install xacc
